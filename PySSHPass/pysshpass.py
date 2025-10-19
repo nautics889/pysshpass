@@ -7,10 +7,15 @@ import select
 
 
 class SSHClientWrapper:
-    def __init__(self, host, user, password, cmds='', invoke_shell=False, prompt='', prompt_count=1, timeout=360,
-                 disable_auto_add_policy=False, look_for_keys=False, delay=0.5, quiet=False):
+    def __init__(self, host, port, user, password, cmds='', invoke_shell=False, prompt='', prompt_count=1,
+                 timeout=360, disable_auto_add_policy=False, look_for_keys=False, delay=0.5, quiet=False):
         self.quiet = quiet
+
+        if ":" in host:
+            host, port = host.split(":")
+
         self.host = host
+        self.port = port
         self.user = user
         self.password = password or os.getenv('PYSSH_PASS')
         if not self.password:
@@ -48,6 +53,7 @@ class SSHClientWrapper:
         try:
             self.client.connect(
                 hostname=self.host,
+                port=self.port,
                 username=self.user,
                 password=self.password,
                 look_for_keys=self.look_for_keys,
@@ -243,9 +249,26 @@ class SSHClientWrapper:
             self.client.close()
 
 
+class HostOption(click.Option):
+    def handle_parse_result(self, ctx, opts, args):
+        if ":" in opts.get("host", "") and opts.get("port"):
+            raise click.UsageError(
+                "Port specified more than once. Please, specify port value "
+                "either as --port <port> or as a part of --host <host>:<port>"
+            )
+        return super(HostOption, self).handle_parse_result(
+            ctx,
+            opts,
+            args
+        )
+
+
 # CLI configuration using click
 @click.command()
-@click.option('--host', '-h', required=True, help='SSH Host (ip:port)')
+@click.option('--host', '-h', required=True, metavar='HOST[:PORT]',
+              help='Target host HOST or HOST:PORT', cls=HostOption)
+@click.option('--port', default=22, show_default=True,
+              help='SSH Port')
 @click.option('--user', '-u', required=True, help='SSH Username')
 @click.option('--password', '-p', required=False, help='SSH Password')
 @click.option('--cmds', '-c', default='', help='Commands to run, separated by comma')
@@ -259,12 +282,12 @@ class SSHClientWrapper:
 @click.option('--look-for-keys', is_flag=True, default=False, help='Look for local SSH key [default=False]')
 @click.option('--delay', '-d', default=0.5, help='Delay between sending commands in seconds [default is 0.5 seconds]')
 @click.option('--quiet', is_flag=True, default=False, help='Suppress output when running as a library')
-def ssh_client(host, user, password, cmds, invoke_shell, prompt, prompt_count, timeout, disable_auto_add_policy,
+def ssh_client(host, port, user, password, cmds, invoke_shell, prompt, prompt_count, timeout, disable_auto_add_policy,
                look_for_keys, delay, quiet):
     """
     CLI wrapper for SSHClientWrapper class
     """
-    ssh_client = SSHClientWrapper(host, user, password, cmds, invoke_shell, prompt, prompt_count, timeout,
+    ssh_client = SSHClientWrapper(host, port, user, password, cmds, invoke_shell, prompt, prompt_count, timeout,
                                   disable_auto_add_policy, look_for_keys, delay, quiet)
     ssh_client.connect()
     output = ssh_client.run_commands()  # Runs the commands and returns the output
