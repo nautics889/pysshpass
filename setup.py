@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='pysshpass',
-    version='0.2.2',
+    version='0.2.3',
     description='Python-based, Windows compatible SSH automation client designed to offer a vendor agnostic alternative to Netmiko or `sshpass`.',
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
